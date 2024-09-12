@@ -1,6 +1,6 @@
 # Disclaimer
 
-This project is licensed under the [MIT License](LICENSE), allowing you to use, modify, and distribute the code freely, with minimal restrictions. While I strive to ensure the code is functional and reliable, it is provided **"as is"**, without warranty of any kind. 
+My scripts are licensed under the [MIT License](LICENSE), allowing you to use, modify, and distribute the code freely, with minimal restrictions. While I strive to ensure the code is functional and reliable, it is provided **"as is"**, without warranty of any kind. 
 
 By using this code, you acknowledge that:
 
