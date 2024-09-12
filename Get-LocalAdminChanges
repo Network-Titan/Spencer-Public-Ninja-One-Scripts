@@ -43,7 +43,7 @@ TimeCreated          Action  TargetAccount    ActorAccount
 9/12/2024 1:54:25 PM Added   DESKTOP\Guest    TestUser
 
 .NOTES
-    Author: Spencer
+    Author: https://github.com/Sp-e-n-c-er
     Date: 12th September 2024
     This script is designed to work on systems where Security Group Management auditing is enabled 
     and configured to log group membership changes in the Security event log.
