@@ -115,3 +115,4 @@ New-HTML -TitleText "NinjaOne Policy Report" -FilePath "$desktopPath\PolicyRepor
     }
 }
 Write-Host "Policy report generated at: $desktopPath\PolicyReport.html" -ForegroundColor Green
+start msedge $desktopPath\PolicyReport.html
