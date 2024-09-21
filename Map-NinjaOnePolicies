@@ -2,9 +2,12 @@ $devices = @()
 #########################################
 #     CUSTOM BRANDING FOR NINJAONE      #
 #########################################
-$OrganizationName = "YOUR ORG NAME HERE"
-$Text = "NinjaOne Hierarchy Policy Report"
-$date = Get-Date -Format "yyyy-MM-dd"
+$OrganizationName = "YOUR ORG NAME HERE"    #########################################
+$Text = "NinjaOne Hierarchy Policy Report"  #     CUSTOM BRANDING FOR NINJAONE      #
+$date = Get-Date -Format "yyyy-MM-dd"       #########################################
+#########################################
+#     CUSTOM BRANDING FOR NINJAONE      #
+#########################################
 $all = Get-NinjaOnePolicies
 $devices = Get-NinjaOneDevices
 $TotalPolicyCount = ($all | Measure-Object).Count
