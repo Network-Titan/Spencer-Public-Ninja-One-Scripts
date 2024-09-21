@@ -8,6 +8,7 @@ $date = Get-Date -Format "yyyy-MM-dd"       ####################################
 #########################################
 #     CUSTOM BRANDING FOR NINJAONE      #
 #########################################
+$desktopPath = [Environment]::GetFolderPath("Desktop")
 $all = Get-NinjaOnePolicies
 $devices = Get-NinjaOneDevices
 $TotalPolicyCount = ($all | Measure-Object).Count
@@ -96,7 +97,7 @@ $policyHTML = Convert-PolicyTreeToHTML -policyTree $policyTree
 # Create HTML report using PSWriteHTML
 Import-Module PSWriteHTML
 
-New-HTML -TitleText "NinjaOne Policy Report" -FilePath "C:\Temp\PolicyReport.html" {
+New-HTML -TitleText "NinjaOne Policy Report" -FilePath "$desktopPath\PolicyReport.html" {
 
     # Add organization branding at the top
     New-HTMLContent {
@@ -113,3 +114,4 @@ New-HTML -TitleText "NinjaOne Policy Report" -FilePath "C:\Temp\PolicyReport.htm
         $policyHTML
     }
 }
+Write-Host "Policy report generated at: $desktopPath\PolicyReport.html" -ForegroundColor Green
