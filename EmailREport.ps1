@@ -1,108 +1,97 @@
-############################################
-#*/#
-#*/#
-#*/#
-#*/#
-#*/#
-#*/#
-#*/# -----Pre Defined Variables----- #*/#
-$desktop = [Environment]::GetFolderPath("Desktop")
-$EmailSender = ""
-$smtpServer = ""
-$description = "This account has been disabled"
+####################################################
+#/# Customizable Variables
+$desktopPath = [System.Environment]::GetFolderPath('Desktop')
+$csvPath = "$($desktopPath)\strike list.csv"
+$errorLogPath = "$($desktopPath)\strike_list_errors_$(Get-Date -Format yyyyMMdd).log"
+$description = "FILLER MESSAGE FOR DESCRIPTION"
+$SenderEmail = "here@test.com"
+$SMTPServer = "smtp.test.com"
 $whatif = $true
-$GoodUsers = @()
-$allResults = @()
-$output = "$($desktop)\StriklistResults_$((Get-Date).ToString('yyyyMMdd')).csv"
+#/#
+####################################################
 
 
-function Write-Log {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-
-        [Parameter()]
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG", "TRACE")]
-        [string]$LogLevel = "INFO",
-
-        [Parameter()]
-        [string]$LogFilePath = "$desktop\Strike_logfile.log"
-    )
-
-    $logDirectory = Split-Path -Path $LogFilePath
-    if (!(Test-Path -Path $logDirectory)) {
-        New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-    }
-
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$LogLevel] $Message"
-
-    try {
-        Add-Content -Path $LogFilePath -Value $logEntry -Force
-    }
-    catch {
-        Write-Error "Failed to write to log file: $_"
-    }
+if (!(Test-Path -Path $csvPath)) {
+    Write-Host "CSV file not found at: $csvPath" -ForegroundColor Red
+    exit
 }
-$MasterList = Import-Csv "$($desktop)\masterlist.csv"
-# Validate masterlist file
-$PathTest = Test-Path "$desktop\masterlist.csv"
-if ($PathTest -eq $false) {
-    Write-Host "Masterlist not found, please create a masterlist.csv file on your desktop"
-    break
+if (Test-Path $errorLogPath) {
+    Remove-Item -Path $errorLogPath -Force
 }
-else {
-    foreach ($userAccount in $MasterList) {
-        try {
-            # Initial Disable/Set Description/Replace Info
-            $getUser = Get-ADUser $userAccount.SamAccountName -ErrorAction Stop
-            Disable-ADAccount -Identity $userAccount.SamAccountName -ErrorAction Stop -WhatIf:$whatif
-            Set-ADUser -Identity $userAccount.SamAccountName -Description $description -ErrorAction Stop -WhatIf:$whatif
-            Set-ADUser -Identity $getUser -Replace @{info = "PLEASEREPLACE" } -ErrorAction Stop -WhatIf:$whatif
-            $GoodUsers += $getUser
-        }
-        catch {
-            Write-Log -Message "Failed to process user account $($userAccount.SamAccountName)" -LogLevel "ERROR"
-        }
-    }
+New-Item -Path $errorLogPath -ItemType File -Force | Out-Null
 
-    # Process each user in GoodUsers
-    foreach ($user in $GoodUsers) {
-        try {
-            $validate = Get-ADUser $user.SamAccountName -Properties Description, Info, Enabled -ErrorAction Stop
-            $Results = [PSCustomObject]@{
-                SamAccountName = $validate.SamAccountName
-                Description    = $validate.Description
-                Info           = $validate.Info
-                Enabled        = $validate.Enabled
-            }
-            $AllResults += $Results
-        }
-        catch {
-            Write-Log -Message "Failed to validate user account $($user.SamAccountName)" -LogLevel "ERROR"
-        }
-    }
-}
-
-foreach ($Finaluser in $GoodUsers) {
-    $Query = Get-ADUser -Identity $Finaluser -Properties Manager, personalTitle, GivenName, Surname
-    if ($null -eq $Query.Manager ) {
-        Write-Log -Message "$($finaluser.samaccountname) does not have a manager" -LogLevel "WARN"
+foreach ($user in $users) {
+    $samAccountName = $($user.samaccountname)
+    $aduser = $null
+    $adUser = Get-ADUser $samAccountName -ErrorAction SilentlyContinue -Properties mail, personalTitle, surname, givenName
+    if ($nul -eq $adUser) {
+        $errorMessage = "User '$samAccountName' not found in Active Directory."
+        Add-Content -Path $errorLogPath -Value $errorMessage
+        Write-Host $errorMessage -ForegroundColor Yellow
         continue
     }
-    else {
-        $Manager = (Get-ADUser -Identity $Query.Manager -Properties Mail | select Mail).Mail
-        $UserTextName = "$($Query.personalTitle) $($query.GivenName) $($query.Surname)".ToUpper()
-        $subject = "URGENT! NOTIFICATION OF ACCOUNT LOCKOUT: $($UserTextName)".ToUpper()
-        $body = @"
+
+    try {
+        Disable-ADAccount -Identity $adUser -ErrorAction Stop -WhatIf:$whatif
+    }
+    catch {
+        $errorMessage = "Failed to disable user '$samAccountName'. Error: $_"
+        Add-Content -Path $errorLogPath -Value $errorMessage
+        Write-Host $errorMessage -ForegroundColor Red
+        continue
+    }
+
+    try {
+        Set-ADUser -Identity $adUser -Description $description -Replace @{info = $description } -ErrorAction Stop -whatif:$whatif
+    }
+    catch {
+        $errorMessage = "Failed to update attributes for user '$samAccountName'. Error: $_"
+        Add-Content -Path $errorLogPath -Value $errorMessage
+        Write-Host $errorMessage -ForegroundColor Red
+        continue
+    }
+
+    $updatedUser = Get-ADUser -Identity $adUser -Properties Enabled, Description, Info
+    if ($updatedUser.Enabled -ne $false -or $updatedUser.Description -ne $description -or $updatedUser.Info -ne $description) {
+        $errorMessage = "Verification failed for user '$samAccountName'."
+        Add-Content -Path $errorLogPath -Value $errorMessage
+        Write-Host $errorMessage -ForegroundColor Yellow
+        continue
+    }
+
+    try {
+        $managerDN = $updatedUser.Manager
+        if ($managerDN) {
+            $manager = Get-ADUser -Identity $managerDN -Properties mail
+            if ($manager.mail) {
+                if ($whatif -eq $false) {
+                    $OffenderName = "$($aduser.personalTitle) $($aduser.surname) $($aduser.givenName)".ToUpper()
+                    $subject = "URGENT ACCOUNT DISABLED NOTIFICATION: $OffenderName"
+                    $body = @"
+
+                    INPUT MESSAGE HERE
 "@.ToUpper()
-        if ($whatif -eq $false) {
-            Send-MailMessage -From $EmailSender -To $Manager -Subject $subject -Body $body -SmtpServer $smtpServer
+                    Send-MailMessage -From $SenderEmail -To $manager.mail -Subject $subject -Body $body -SmtpServer $SMTPServer
+                }
+                else {
+                    Write-Host "Email would be sent to $($manager.mail) for user $samAccountName" -ForegroundColor Green
+                }
+            }
+            else {
+                $errorMessage = "Manager for user $($samAccountName) does not have an email address."
+                Add-Content -Path $errorLogPath -Value $errorMessage
+                Write-Host $errorMessage -ForegroundColor Yellow
+            }
         }
         else {
-            Write-Host "Email would have been sent to $Manager"
+            $errorMessage = "User '$samAccountName' does not have a manager assigned."
+            Add-Content -Path $errorLogPath -Value $errorMessage
+            Write-Host $errorMessage -ForegroundColor Yellow
         }
     }
+    catch {
+        $errorMessage = "Failed to send email for user '$samAccountName'. Error: $_"
+        Add-Content -Path $errorLogPath -Value $errorMessage
+        Write-Host $errorMessage -ForegroundColor Red
+    }
 }
-$Results | Export-Csv -Path $output -NoTypeInformation -Force
