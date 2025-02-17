@@ -44,106 +44,118 @@
     This script is provided as-is with no warranties. 
     Use at your own risk. Licensed under the MIT License.
 #>
-
+if ((Get-WmiObject win32_bios).Manufacturer -notlike '*Dell*') {
+    Write-Output 'Not a Dell system. Aborting...'
+    Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" "Not A Dell System"
+    Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Not A Dell System"
+    exit 0
+}
 $DCU = (Resolve-Path "$env:SystemDrive\Program Files*\Dell\CommandUpdate\dcu-cli.exe").Path
-$outputFile = "$env:Temp\Output.txt"
-$process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$DCU`" /scan -updateType=bios,firmware -silent" -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outputFile
-$exitCode = $process.ExitCode
-$scan = Get-Content -Path $outputFile -Raw
-Remove-Item -Path $outputFile -Force
+if (!$DCU) {
+    Write-Warning 'Dell Command Update CLI was not detected.'
+    exit 1
+}
+else {
+    $DCU = (Resolve-Path "$env:SystemDrive\Program Files*\Dell\CommandUpdate\dcu-cli.exe").Path
+    $outputFile = "$env:Temp\Output.txt"
+    $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$DCU`" /scan -updateType=bios,firmware -silent" -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outputFile
+    $exitCode = $process.ExitCode
+    $scan = Get-Content -Path $outputFile -Raw
+    Remove-Item -Path $outputFile -Force
 
-switch ($exitCode) {
-    1 {
-        Write-Output 'Reboot required to complete a previous operation.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Reboot Required"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    2 {
-        Write-Output 'Dell Command Update returned a fatal error.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Fatal Error"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    3 {
-        Write-Output 'Not a Dell system.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Not a Dell System"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    4 {
-        Write-Output 'CLI was not launched with administrative privilege.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Admin Privilege Required"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    5 {
-        Write-Output 'Reboot required to complete a previous operation.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Reboot Required"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    6 {
-        Write-Output 'Dell Command Update is currently running.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Currently Running"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    7 {
-        Write-Output 'This system model is not supported by the application.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "System Model Not Supported"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    8 {
-        Write-Output 'No update filters have been configured.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "No Update Filters Configured"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 100 -and $_ -le 113 } {
-        Write-Output 'An input validation error has occurred.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Input Validation Error"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    500 {
-        Write-Output 'No updates found.'  ## Changed behavior for code 500
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "No Updates Found"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 501 -and $_ -le 503 } {
-        Write-Output 'Error running /scan. Retry the operation.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Scan Error - Retry"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 1000 -and $_ -le 1002 } {
-        Write-Output 'Error running /applyUpdates. Retry the operation.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "ApplyUpdates Error - Retry"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 1505 -and $_ -le 1506 } {
-        Write-Output 'Error running /configure. Retry the operation.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Configure Error - Retry"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 2000 -and $_ -le 2007 } {
-        Write-Output 'Error running /driverInstall. Retry the operation.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "DriverInstall Error - Retry"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 2500 -and $_ -le 2502 } {
-        Write-Output 'Password Encryption Input Validation Error.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Password Encryption Error"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    { $_ -ge 3000 -and $_ -le 3005 } {
-        Write-Output 'Dell Client Management Service error.'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Client Management Service Error"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
-    }
-    0 {
-        Write-Output "====== Available Dell Command Update Software Installs ======"
-        Write-Output $scan
-        Write-Output "====== End of Dell Command Update Software Installs ======"
-        Write-Output 'Updates available'
-        $scan | Ninja-Property-Set-Piped "dellCommandUpdateBiosAndFirmwareUpdates"
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "BIOS/Firmware Updates Available"
-    }
-    default {
-        Write-Output 'No Valid Exit Code'
-        Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "No Valid Exit Code"
-        Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+    switch ($exitCode) {
+        1 {
+            Write-Output 'Reboot required to complete a previous operation.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Reboot Required"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        2 {
+            Write-Output 'Dell Command Update returned a fatal error.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Fatal Error"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        3 {
+            Write-Output 'Not a Dell system.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Not a Dell System"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        4 {
+            Write-Output 'CLI was not launched with administrative privilege.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Admin Privilege Required"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        5 {
+            Write-Output 'Reboot required to complete a previous operation.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Reboot Required"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        6 {
+            Write-Output 'Dell Command Update is currently running.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Currently Running"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        7 {
+            Write-Output 'This system model is not supported by the application.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "System Model Not Supported"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        8 {
+            Write-Output 'No update filters have been configured.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "No Update Filters Configured"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 100 -and $_ -le 113 } {
+            Write-Output 'An input validation error has occurred.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Input Validation Error"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        500 {
+            Write-Output 'No updates found.'  ## Changed behavior for code 500
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "No Updates Found"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 501 -and $_ -le 503 } {
+            Write-Output 'Error running /scan. Retry the operation.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Scan Error - Retry"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 1000 -and $_ -le 1002 } {
+            Write-Output 'Error running /applyUpdates. Retry the operation.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "ApplyUpdates Error - Retry"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 1505 -and $_ -le 1506 } {
+            Write-Output 'Error running /configure. Retry the operation.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Configure Error - Retry"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 2000 -and $_ -le 2007 } {
+            Write-Output 'Error running /driverInstall. Retry the operation.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "DriverInstall Error - Retry"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 2500 -and $_ -le 2502 } {
+            Write-Output 'Password Encryption Input Validation Error.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Password Encryption Error"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        { $_ -ge 3000 -and $_ -le 3005 } {
+            Write-Output 'Dell Client Management Service error.'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "Client Management Service Error"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
+        0 {
+            Write-Output "====== Available Dell Command Update Software Installs ======"
+            Write-Output $scan
+            Write-Output "====== End of Dell Command Update Software Installs ======"
+            Write-Output 'Updates available'
+            $scan | Ninja-Property-Set-Piped "dellCommandUpdateBiosAndFirmwareUpdates"
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "BIOS/Firmware Updates Available"
+        }
+        default {
+            Write-Output 'No Valid Exit Code'
+            Ninja-Property-Set "dellFirmwareOrBiosUpdateAvailable" "No Valid Exit Code"
+            Ninja-Property-Set "dellCommandUpdateBiosAndFirmwareUpdates" $scan
+        }
     }
 }
