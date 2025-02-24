@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     This script streamlines Dell system management by interfacing with Dell Command Update (DCU) and NinjaOne. Key features include:
-    - Validates the system as a Dell device and removes incompatible "Dell Update*" applications.
+    - Validates the system as a Dell device and removes incompatible "Dell Update" applications.
     - Downloads and installs the latest DCU version dynamically from Dell’s support site.
     - Performs update scans (general or BIOS/firmware-specific) and applies updates based on user-selected options.
     - Integrates with NinjaOne by setting custom fields for update status and results (except for the general scan, which outputs to CLI only).
