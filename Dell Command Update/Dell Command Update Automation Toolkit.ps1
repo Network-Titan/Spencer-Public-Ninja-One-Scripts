@@ -322,7 +322,7 @@ switch ($env:pleaseSelectAnOptionToRun) {
         Invoke-DCUandInstall -UpdateType 'firmware,bios'
     }
     default {
-        Write-Output "No valid option selected via environment variable 'pleaseSelectionAnOptionToRun'."
+        Write-Output "No valid option selected via environment variable 'pleaseSelectAnOptionToRun'."
         exit 1
     }
 }
