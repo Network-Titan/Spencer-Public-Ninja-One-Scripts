@@ -161,7 +161,7 @@ function Get-DeviceCompatibility {
 
     # Check model and exit if incompatible (Update as compatible models are discovered)
     $model = (Get-WmiObject Win32_ComputerSystem).Model
-    if ($model -notmatch "Optiplex|Precision|Latitude") {
+    if ($model -notmatch "Optiplex|Precision|Latitude|XPS") {
         Write-Output "Non-compatible model detected: $model. Exiting."
         Ninja-Property-Set $firmwareBiosUpdateField "Non-compatible model: $model"
         Ninja-Property-Set $biosFirmwareUpdatesField "Non-compatible model: $model - $(Get-Date)"
