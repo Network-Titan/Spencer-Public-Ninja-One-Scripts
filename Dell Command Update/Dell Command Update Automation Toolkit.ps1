@@ -170,7 +170,6 @@ function Get-DeviceCompatibility {
 }
 
 function Invoke-PreinstallChecks {
-    Get-DeviceCompatibility
     $IncompatibleApps = Get-ChildItem -Path $RegPaths | Get-ItemProperty | Where-Object { $_.DisplayName -like 'Dell Update*' }
     foreach ($App in $IncompatibleApps) {
         Write-Output "Attempting to remove program: [$($App.DisplayName)]"
@@ -329,25 +328,32 @@ function Invoke-DCUBiosFirmwareScan {
 
 switch ($env:pleaseSelectAnOptionToRun) {
     "Install" {
+        Get-DeviceCompatibility
         Invoke-PreinstallChecks
         Install-DCU
     }
     "Remove Incompatible Versions" {
+        Get-DeviceCompatibility
         Invoke-PreinstallChecks
     }
     "Run Scan" {
+        Get-DeviceCompatibility
         Invoke-DCUScan
     }
     "Run BIOS and Firmware Scan" {
+        Get-DeviceCompatibility
         Invoke-DCUBiosFirmwareScan
     }
     "Run Scan And Install All" {
+        Get-DeviceCompatibility
         Invoke-DCUandInstall -UpdateType 'all'
     }
     "Run Scan And Install Excluding BIOS and Firmware" {
+        Get-DeviceCompatibility
         Invoke-DCUandInstall -UpdateType 'driver,application'
     }
     "Run Scan And Install BIOS and Firmware ONLY" {
+        Get-DeviceCompatibility
         Invoke-DCUandInstall -UpdateType 'firmware,bios'
     }
     default {
